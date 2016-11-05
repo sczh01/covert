@@ -11,8 +11,10 @@
 #include <AppEvnts.hpp>
 #include <Clipbrd.hpp>
 #include <IniFiles.hpp>
-#include "MY_UTIL.H"
 #include <Dialogs.hpp>
+#include "MY_UTIL.H"
+#include "msg.h"
+
 //---------------------------------------------------------------------------
 class TMainForm : public TForm
 {
@@ -63,6 +65,8 @@ __published:	// IDE-managed Components
 	TButton *btnOpenLogfile;
 	TButton *btnSavePrj;
 	TButton *btnOpenPrj;
+	TLabeledEdit *LeArrayHeadOut;
+	TLabeledEdit *LeArrayTrailOut;
 	void __fastcall MainAppEventsMessage(tagMSG &Msg, bool &Handled);
 	void __fastcall BtnConvert1Click(TObject *Sender);
 	void __fastcall BtnCopy2Click(TObject *Sender);

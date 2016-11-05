@@ -192,8 +192,8 @@ object MainForm: TMainForm
     OnClick = BtnCopy2Click
   end
   object LinkLabel1: TLinkLabel
-    Left = 429
-    Top = 637
+    Left = 519
+    Top = 648
     Width = 96
     Height = 17
     Caption = '<a>'#28857#27492#26597#30475'DCS'#21629#20196'</a>'
@@ -231,9 +231,9 @@ object MainForm: TMainForm
   end
   object if_type: TRadioGroup
     Left = 487
-    Top = 460
-    Width = 130
-    Height = 206
+    Top = 453
+    Width = 112
+    Height = 143
     Caption = 'Convert Type'
     ItemIndex = 0
     Items.Strings = (
@@ -317,9 +317,9 @@ object MainForm: TMainForm
     Text = ' '
   end
   object LeDataCntPos: TLabeledEdit
-    Left = 760
-    Top = 596
-    Width = 23
+    Left = 672
+    Top = 575
+    Width = 25
     Height = 21
     EditLabel.Width = 50
     EditLabel.Height = 13
@@ -329,9 +329,9 @@ object MainForm: TMainForm
     Text = ' '
   end
   object LeDataTypePos: TLabeledEdit
-    Left = 760
-    Top = 618
-    Width = 24
+    Left = 672
+    Top = 597
+    Width = 26
     Height = 21
     EditLabel.Width = 57
     EditLabel.Height = 13
@@ -341,9 +341,9 @@ object MainForm: TMainForm
     Text = ' '
   end
   object LeAnnotate: TLabeledEdit
-    Left = 672
-    Top = 574
-    Width = 25
+    Left = 760
+    Top = 638
+    Width = 23
     Height = 21
     EditLabel.Width = 44
     EditLabel.Height = 13
@@ -354,8 +354,8 @@ object MainForm: TMainForm
   end
   object LeExFunc: TLabeledEdit
     Left = 672
-    Top = 596
-    Width = 25
+    Top = 618
+    Width = 26
     Height = 21
     EditLabel.Width = 26
     EditLabel.Height = 13
@@ -374,8 +374,8 @@ object MainForm: TMainForm
     OnClick = btnSaveClick
   end
   object MIPI_Data_Type: TCheckBox
-    Left = 648
-    Top = 459
+    Left = 487
+    Top = 602
     Width = 97
     Height = 17
     Caption = 'DCS_GCS_Switch'
@@ -430,8 +430,8 @@ object MainForm: TMainForm
     Text = '41'
   end
   object AllGCS: TCheckBox
-    Left = 648
-    Top = 477
+    Left = 487
+    Top = 625
     Width = 58
     Height = 17
     Caption = 'All GCS'
@@ -448,7 +448,7 @@ object MainForm: TMainForm
   end
   object LeArrayGapOut: TLabeledEdit
     Left = 760
-    Top = 575
+    Top = 618
     Width = 23
     Height = 21
     EditLabel.Width = 52
@@ -480,22 +480,46 @@ object MainForm: TMainForm
     OnClick = btnSaveClick
   end
   object btnSavePrj: TButton
-    Left = 888
-    Top = 509
-    Width = 66
+    Left = 599
+    Top = 453
+    Width = 49
     Height = 22
     Caption = 'Save Prj'
     TabOrder = 39
     OnClick = btnSaveClick
   end
   object btnOpenPrj: TButton
-    Left = 888
-    Top = 534
-    Width = 66
+    Left = 599
+    Top = 470
+    Width = 49
     Height = 22
     Caption = 'Open Prj'
     TabOrder = 40
     OnClick = btnSaveClick
+  end
+  object LeArrayHeadOut: TLabeledEdit
+    Left = 760
+    Top = 575
+    Width = 23
+    Height = 21
+    EditLabel.Width = 58
+    EditLabel.Height = 13
+    EditLabel.Caption = 'Array_Head'
+    LabelPosition = lpLeft
+    TabOrder = 41
+    Text = ' '
+  end
+  object LeArrayTrailOut: TLabeledEdit
+    Left = 760
+    Top = 597
+    Width = 23
+    Height = 21
+    EditLabel.Width = 53
+    EditLabel.Height = 13
+    EditLabel.Caption = 'Array_Trail'
+    LabelPosition = lpLeft
+    TabOrder = 42
+    Text = ' '
   end
   object MainAppEvents: TApplicationEvents
     OnMessage = MainAppEventsMessage

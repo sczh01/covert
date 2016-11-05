@@ -13,4 +13,17 @@ object Form1: TForm1
   OldCreateOrder = False
   PixelsPerInch = 96
   TextHeight = 13
+  object Memo1: TMemo
+    Left = 0
+    Top = 0
+    Width = 584
+    Height = 341
+    Align = alClient
+    ScrollBars = ssBoth
+    TabOrder = 0
+    ExplicitLeft = -3
+    ExplicitTop = -19
+    ExplicitWidth = 587
+    ExplicitHeight = 360
+  end
 end

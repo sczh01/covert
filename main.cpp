@@ -4,52 +4,14 @@
 #pragma hdrstop
 
 #include "main.h"
+
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
 TMainForm *MainForm;
 
 #define RENESAS_FORMAT_DEFAULT
-//---------------------------------------------------------------------------
-__fastcall TMainForm::TMainForm(TComponent* Owner) : TForm(Owner)
-{
-	OpenPrj( Application->ExeName) ;
-}
-//---------------------------------------------------------------------------
-void __fastcall TMainForm::MainAppEventsMessage(tagMSG &Msg, bool &Handled)
-{
-	if ( Msg.message == WM_DROPFILES )
-	//处理文件拖放
-   {
-	  HDROP hDrop = (HDROP)Msg.wParam;
-	  int iLength = DragQueryFile( hDrop, 0, 0, 0 ) + 1;
-	  TCHAR* FileFullPath = new TCHAR[iLength];
-		DragQueryFile( hDrop, 0, FileFullPath, iLength );
-		FileFullPath[iLength-1] = 0;
-		DragFinish( hDrop );
 
-		UnicodeString FileExt = ExtractFileExt( FileFullPath ).UpperCase();
-
-		TMemo* pMemo;
-		if ( Msg.hwnd == Memo1->Handle )
-			pMemo = Memo1;
-/*		else if (Msg.hwnd == Memo2->Handle)
-			pMemo = Memo2;   */
-		else
-			goto FUNC_RETURN;
-
-		if ( FileExt == L".TXT" || FileExt == L".C" || FileExt == L".CPP" || FileExt == L".H" )
-		//载入初始化
-		{
-			pMemo->Clear();
-			pMemo->Lines->LoadFromFile( UnicodeString(FileFullPath) );
-		}
-
-FUNC_RETURN:
-		delete[] FileFullPath;
-		DragFinish( hDrop );
-	}
-}
 //---------------------------------------------------------------------------
 void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, CONVERT_SETTING* setting)
 {
@@ -244,8 +206,8 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 	size_t count = param->size();
 
 
-	switch ( setting->bRenesasFormat ){//setc
-	case 0:
+	switch ( setting->bRenesasFormat ){ //output format by rdoOutputType
+	case 0:  //setc: RSP tools format
 		if ( type == 0 )//8bit
 		{
 			size_t i = 0;
@@ -274,7 +236,7 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 		}
 
 		break;
-	case 1: //C Format
+	case 1: //C Format : DVI 2828 format
 		if(type == 0) //in_if 8bit
 			if ( setting->outIF_16bit == 1 )//16bit
 			{
@@ -725,7 +687,10 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 				size_t i = 0, j=0, k =0;
 				setting->isShowDelay = 0;
 				if( (cmd & 0xFF) >= 0xB0 ){
-					S1.sprintf(L"{0x00%02X%02X02,", count+1,(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+					if( count>1 )
+					S1.sprintf(L"{0x00%02X2902,", count+1);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+					else
+					S1.sprintf(L"{0x00%02X2302,", count+1);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
 					j =0;
 					k = count/4;
 
@@ -784,7 +749,7 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 					S = L"";
 
 					if( count>3 ){
-						S1.sprintf(L"{0x00%02X%02X02,", count+1,(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+						S1.sprintf(L"{0x00%02X3902,", count+1);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
 						S.sprintf(L"0x%02X%02X%02X%02X,", (*param)[2] & 0xFF,(*param)[1] & 0xFF,(*param)[0] & 0xFF,cmd & 0xFF);
 						S1+=S;
 
@@ -813,7 +778,7 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 						S1+=S;
 						psl->Add(S1);
 					}
-					else if( count>0 && count<4){
+					else if( count>1 && count<4){
 						S1.sprintf(L"{0x00%02X%02X02,", count+1,(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
 						S=L"0x";
 
@@ -833,8 +798,16 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 						S1+=S;
 						psl->Add(S1);
 					}
+					else if(count==1) {
+						S.sprintf(L"{0x%02X%02X1500,", (*param)[0] & 0xFF, cmd & 0xFF);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+						S2.sprintf(L"0x%02X};", setting->iDelaytime&0xFF);
+						S+=S2;
+						psl->Add(S);
+						psl->Add(L"");
+						return;
+					}
 					else if(count==0) {
-						S.sprintf(L"{0x00%02X%02X00,", cmd & 0xFF,(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+						S.sprintf(L"{0x00%02X0500,", cmd & 0xFF);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
 						S2.sprintf(L"0x%02X};", setting->iDelaytime&0xFF);
 						S+=S2;
 						psl->Add(S);
@@ -843,6 +816,88 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 					}
 				}else if( (cmd & 0xFF) == 0xBC )
 							param_cnt_16bit = (*param)[0]& 0xFF;
+			}
+			else if( 7 == (LeExFunc->Text.ToInt()&0x3f)){   //MTK format 2:  {0x00062902,0x001004B3,0x00000000,0x01};
+				size_t i = 0, j=0, k =0;
+				setting->isShowDelay = 0;
+				if( ((cmd & 0xFF) != 0x11) && ((cmd & 0xFF) != 0x29 ) && ((cmd & 0xFF) != 0x28 ) &&((cmd & 0xFF) != 0x10 )\
+				&&((cmd & 0xFF) != 0x35)&&((cmd & 0xFF) != 0x36)&&((cmd & 0xFF) != 0x51) &&((cmd & 0xFF) != 0x53)&&((cmd & 0xFF) != 0x55)){
+					S1.sprintf(L"{0x00%02X2902,", count+1);
+					j =0;
+					k = count/4;
+
+					if( count>3 ){
+						S.sprintf(L"0x%02X%02X%02X%02X,", (*param)[2] & 0xFF,(*param)[1] & 0xFF,(*param)[0] & 0xFF,cmd & 0xFF);
+						S1+=S;
+
+						j =3;
+						k = (count-3)/4;
+
+						for ( i = j; i < k*4; i+=4 ){
+							S.sprintf(L"0x%02X%02X%02X%02X,",(*param)[i+3] & 0xFF,(*param)[i+2] & 0xFF,(*param)[i+1] & 0xFF,(*param)[i] & 0xFF);
+							S1+=S;
+						}
+						j = (count+1)%4 ;
+						S=L"";
+						if( j ){
+							S=L"0x";
+							for( k=0;k<4-j;k++)
+								S+=L"00";
+							for( k=0; k<j; k++ ) {
+								S2.sprintf(L"%02X", (*param)[count-k-1] & 0xFF);
+								S+=S2;
+							}
+							S+=L",";
+						}
+
+						S2.sprintf(L"0x%02X};", setting->iDelaytime);
+						S+=S2;
+						S1+=S;
+						psl->Add(S1);
+					}
+					else{
+						S=L"0x";
+
+						for( k=0;k<3-count;k++)
+							S+=L"00";
+
+						for( i=count; i>0; i-- ){
+							S2.sprintf(L"%02X", (*param)[i-1] & 0xFF);
+							S+=S2;
+						}
+
+						S2.sprintf(L"%02X", cmd & 0xFF);
+						S+=S2;
+
+						S2.sprintf(L",0x%02X};", setting->iDelaytime&0xFF);
+						S+=S2;
+						S1+=S;
+						psl->Add(S1);
+					}
+				}
+				else if( ((cmd & 0xFF) == 0x11) || ((cmd & 0xFF) == 0x29 ) || ((cmd & 0xFF) == 0x28 ) ||((cmd & 0xFF) == 0x10 ) )
+				{
+					S1 = L"";
+					S = L"";
+					S.sprintf(L"{0x00%02X0500,", cmd & 0xFF);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+					S2.sprintf(L"0x%02X};", setting->iDelaytime&0xFF);
+					S+=S2;
+					psl->Add(S);
+					psl->Add(L"");
+					return;
+				}
+				else if( ((cmd & 0xFF) == 0x36) || ((cmd & 0xFF) == 0x35 ) || ((cmd & 0xFF) == 0x51 ) ||((cmd & 0xFF) == 0x53 ) ||((cmd & 0xFF) == 0x55 ) )
+				{
+					S1 = L"";
+					S = L"";
+					S.sprintf(L"{0x%02X%02X1500,", (*param)[0] & 0xFF, cmd & 0xFF);//(cmd & 0xFF0000)>>16);//(*param)[0] & 0xFF);
+					S2.sprintf(L"0x%02X};", setting->iDelaytime&0xFF);
+					S+=S2;
+					psl->Add(S);
+					psl->Add(L"");
+					return;
+				}else if( (cmd & 0xFF) == 0xBC )
+					param_cnt_16bit = (*param)[0]& 0xFF;
 			}
 		} //8bit end
 		else //16bit
@@ -989,20 +1044,52 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 			size_t i = 0, j=0;
 			if( 0x04==(LeExFunc->Text.ToInt()&0x0f) ) {  //for SSD2828 command
 				if( (cmd & 0xFF) >= 0xB0 && (cmd & 0xFF) == 0xBF ){
-					S.sprintf(L"{0x29,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count)& 0xFF, (*param)[0] & 0xFF);
+					S.sprintf(L"{0x29,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count)& 0xFF, (*param)[0] & 0xFF);
 					S1 = S;
 					j = 1;
 				}
 				else if( (cmd & 0xFF) == 0x11 || (cmd & 0xFF) == 0x10 || (cmd & 0xFF) == 0x28|| (cmd & 0xFF) == 0x29 ){
-					S.sprintf(L"{0x05,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S.sprintf(L"{0x05,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
 					S1 = S;
 					j =0;
 				}
 				else if( (cmd & 0xFF) < 0xB0 ){
-					S.sprintf(L"{0x39,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S.sprintf(L"{0x39,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
 					S1 = S;
 					j =0;
 				}else  break;
+				for ( i = j; i < count; i++ ){
+					S.sprintf(L"%s0x%02X", setting->strAGapOut.c_str(),(*param)[i] & 0xFF);
+					S1+=S;
+				}
+				S.sprintf(L"}},");
+				S1+=S;
+				psl->Add(S1);
+				setting->isShowDelay = 1;
+			}if( 0x05==(LeExFunc->Text.ToInt()&0x0f) ) {  //linux DTSI format: 29 00 00 00 delay 00 cnt cmd param1 param2 ...
+				if( (cmd & 0xFF) >= 0xB0 ){
+					S.sprintf(L"29 01 00 00 %02X 00 %02X %02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S1 = S;
+					j = 0;
+				}
+				else if( (cmd & 0xFF) == 0x11 || (cmd & 0xFF) == 0x10 || (cmd & 0xFF) == 0x28|| (cmd & 0xFF) == 0x29 ){
+					S.sprintf(L"05 01 00 00 %02X 00 %02X %02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S1 = S;
+					j =0;
+					count = 0;
+				}
+				else if( (cmd & 0xFF) < 0xB0 ){
+					S.sprintf(L"39 01 00 00 %02X 00 %02X %02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S1 = S;
+					j =0;
+				}else  break;
+
+				for ( i = j; i < count; i++ ){
+					S.sprintf(L"%s%02X", setting->strAGapOut.c_str(), (*param)[i] & 0xFF);
+					S1+=S;
+				}
+				psl->Add(S1);
+				setting->isShowDelay = 0;
 			}else if(0x40==(LeExFunc->Text.ToInt()&0xc0)){ //for {0x23, 2, {0xB0, 0x00}}
 				if( (cmd & 0xFF) >= 0xB0 /*&& (cmd & 0xFF) == 0xBF*/ ){
 					S.sprintf(L"{0x29,%02d,{0x%02X", (count+1)& 0xFF, cmd & 0xFF);//(*param)[0] & 0xFF);
@@ -1030,7 +1117,7 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 				psl->Add(S1);
 				setting->isShowDelay = 1;
 			}else if(0x32==(LeExFunc->Text.ToInt()&0xff)){ //Note: Other = 0x42(66) //for {0xB0,2 {0x00, 0x01}}
-				S1 = S.sprintf(L"{0x%02X,%02d,{", cmd & 0xFF, (count)& 0xFF);
+				S1 = S.sprintf(L"{0x%02X,%d,{", cmd & 0xFF, (count)& 0xFF);
 				S1 += S.sprintf(L"0x%02X", (*param)[i] & 0xFF);
 
 				for ( i = 1; i < count; i++ ){
@@ -1044,17 +1131,17 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 			}
 			else if(0x02==(LeExFunc->Text.ToInt()&0x0f)) {
 				if( (cmd & 0xFF) >= 0xB0 /*&& (cmd & 0xFF) == 0xBF*/ ){
-					S.sprintf(L"{0x29,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);//(*param)[0] & 0xFF);
+					S.sprintf(L"{0x29,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);//(*param)[0] & 0xFF);
 					S1 = S;
 					j = 0;
 				}
 				else if( (cmd & 0xFF) == 0x11 || (cmd & 0xFF) == 0x10 || (cmd & 0xFF) == 0x28|| (cmd & 0xFF) == 0x29 ){
-					S.sprintf(L"{0x05,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S.sprintf(L"{0x05,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
 					S1 = S;
 					j =0;
 				}
 				else if( (cmd & 0xFF) < 0xB0 ){
-					S.sprintf(L"{0x39,0,0,0,%04d,%02d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
+					S.sprintf(L"{0x39,0,0,0,%d,%d,{0x%02X",setting->iDelaytime&0xFF, (count+1)& 0xFF, cmd & 0xFF);
 					S1 = S;
 					j =0;
 				}
@@ -1069,6 +1156,33 @@ void TMainForm::AddCMDPacket(TStringList* psl, DWORD cmd, vector<DWORD>* param, 
 				S1+=S;
 				psl->Add(S1);
 				setting->isShowDelay = 0;
+			}
+			else if(0x09==(LeExFunc->Text.ToInt()&0x0f)) {    //E7422 format
+				if( (cmd & 0xFF) >= 0xB0 /*&& (cmd & 0xFF) == 0xBF*/ ){
+					S.sprintf(L"%s 0x29 0x%02X",setting->strCMD.c_str(), cmd & 0xFF);
+					S1 = S;
+					j = 0;
+				}
+				else if( (cmd & 0xFF) == 0x11 || (cmd & 0xFF) == 0x10 || (cmd & 0xFF) == 0x28|| (cmd & 0xFF) == 0x29 ){
+					S.sprintf(L"%s 0x05 0x%02X",setting->strCMD.c_str(), cmd & 0xFF);
+					S1 = S;
+					j =0;
+				}
+				else if( (cmd & 0xFF) < 0xB0 ){
+					S.sprintf(L"%s 0x39 0x%02X",setting->strCMD.c_str(), cmd & 0xFF);
+					S1 = S;
+					j =0;
+				}
+				else   break;
+
+				for ( i = j; i < count; i++ )
+				{
+					S.sprintf(L"%s0x%02X", setting->strAGapOut.c_str(),(*param)[i] & 0xFF);
+					S1+=S;
+				}
+
+				psl->Add(S1);
+				setting->isShowDelay = 1;
 			}
 		}
 		else //16bit
@@ -1160,10 +1274,25 @@ void __fastcall TMainForm::LoadParser()
 	parser.S_ADTPos = LeDataTypePos->Text.UpperCase().c_str();
 	parser.S_ExFunc = LeExFunc->Text.UpperCase().c_str();
 
+	TStringList *pList = new TStringList;
 	parser.in_data_type = if_in->ItemIndex;
 	parser.out_data_type = if_out->ItemIndex;
 	parser.ex_func = LeExFunc->Text.ToInt();
+
+#if 1
+	TIniFile* iniFile = new TIniFile( ChangeFileExt(Application->ExeName, L".ini") );
+	S = iniFile->ReadString( L"CTRL", L"Param",L"");
+
+	pList->Delimiter = ',';
+	pList->DelimitedText = S;
+	pList->Count;
+	if( pList->Count )
+		for( int i=0; i<64; i++){
+			ex_param[i]= StrToInt(pList->Strings[i]);
+	}
+#endif
 	memcpy( parser.ex_param,ex_param,64);
+
 	parser.LoadInitial( Memo1->Lines, rdoInputType->ItemIndex + 1 );
 	Memo2->Clear();
 	setting.bRenesasFormat = rdoOutputType->ItemIndex;
@@ -1685,22 +1814,30 @@ void __fastcall TMainForm::LinkLabel1Click(TObject *Sender)
 0x44, 0x45,\r\n\
 0xA1";
 	S1 = L"\
-input   other \r\n \
-any     00 Default for normal operation.\r\n\ \
-any     01 Lilac2 format.\r\n\ \
-any     02 -> MTK WCOM[0]=0xmm,WCOM[n]=0xnn,WDATA(WCOM,n);\r\n\ \
-1       03(0x03)  input is 8bit, {0x00062902,0x001004B3,0x01};\r\n\ \
-non-1   05(0x05) input is 8bit, {0x00062902,0x001004B3,0x01};\r\n\ \
-any     67(0x43) input is 16bit, {0x00062902,0x001004B3,0x01};\r\n\ \
-10      02(0x02) input is {0x00062902,0x001004B3,0x01},转为其他格式\r\n\ \
-10      50(0x32) input is {0x00062902,0x001004B3,0x01},转为其他格式\r\n\ \
-10      00 input is linux kernel dtsi，转为其他格式 0为基\r\n\ \
-6       00 input is E7xxx系列格式 转为其他格式 1为基\r\n\ \
-1       04 input is WCOM()->{29,0,0,0,2{0xmm,0xnn)} 1为基\r\n\ \
-19      06 {0x00062902,0x001004B3,0x01};以1为基\r\n\ \
+inout	other(dec)	output \r\n \
+any	00 	Default for normal operation.\r\n\ \
+any	01 	Lilac2 format.\r\n\ \
+any	02 	-> MTK WCOM[0]=0xmm,WCOM[n]=0xnn,WDATA(WCOM,n);\r\n\ \
+1	03	input is 8bit, {0x00062902,0x001004B3,0x01};\r\n\ \
+non-1	05	input is 8bit, {0x00062902,0x001004B3,0x01};\r\n\ \
+any	67	input is 16bit, {0x00062902,0x001004B3,0x01};\r\n\ \
+10	02	input is {0x00062902,0x001004B3,0x01},转为其他格式\r\n\ \
+10	50	input is {0x00062902,0x001004B3,0x01},转为其他格式\r\n\ \
+10	00	input is linux kernel dtsi，转为其他格式 0为基\r\n\ \
+6	00	input is E7xxx系列格式 转为其他格式 1为基\r\n\ \
+1	04	input is WCOM()->{29,0,0,0,2{0xmm,0xnn)} 1为基\r\n\ \
+19-2	06	{0x00062902,0x001004B3,0x01};以1为基\r\n\ \
+6-4	50	{0xB0,1,{0x04}};以1为基\r\n\ \
+6-4	05	linux DTSI format: 29 00 00 00 delay 00 cnt cmd param1 param2 ;以1为基\r\n\ \
+6-4	09	E7422 format ;以1为基\r\n\ \
+20-4	50	input is Excel format: B0 04 ==> {0xB0,1,{0x04}};以1为基\r\n\ \
 				";
 	if( Sender == LinkLabel_Other )
-		MessageBox( Handle, S1.c_str(), L"Other 的种类及使用案例", MB_OK);
+	{
+		//MessageBox( Handle, S1.c_str(), L"Other 的种类及使用案例", MB_OK);
+		Form1->Memo1->SetTextBuf(S1.c_str());
+		Form1->ShowModal();
+	}
 	else
 		MessageBox( Handle, S.c_str(), L"本程序支持的DCS命令", MB_OK);
 }
@@ -1765,6 +1902,8 @@ void __fastcall TMainForm::OpenPrj(UnicodeString usPrjPath)
 	LeDataCntPos->Text=iniFile->ReadString( L"CTRL", L"D_CNT_POS", L"0" );
 	LeArrayHead->Text=iniFile->ReadString( L"CTRL", L"A_HEAD", L"{" );
 	LeArrayTrail->Text =iniFile->ReadString( L"CTRL", L"A_TRAIL",L"}");
+	LeArrayHeadOut->Text=iniFile->ReadString( L"CTRL", L"A_HEAD1", L"{" );
+	LeArrayTrailOut->Text =iniFile->ReadString( L"CTRL", L"A_TRAIL1",L"}");
 	LeArrayGap->Text =iniFile->ReadString( L"CTRL", L"A_GAP1", L",");
 	LeArrayGapOut->Text=iniFile->ReadString( L"CTRL", L"A_GAP2", L",");
 	LeExFunc->Text=iniFile->ReadString( L"CTRL", L"OTHER",L"0"  );
@@ -1784,22 +1923,31 @@ void __fastcall TMainForm::OpenPrj(UnicodeString usPrjPath)
 	for( int i=0; i<64; i++){
 		ex_param[i]= StrToInt(pList->Strings[i]);
 	}
-	S = ChangeFileExt(usPrjPath, L"_init.txt");
+	S = ChangeFileExt(usPrjPath, L".init.txt");
 	if ( FileExists( S ) )
 		Memo1->Lines->LoadFromFile(S);
 
-	S = ChangeFileExt(usPrjPath, L"_save.txt");
+	S = ChangeFileExt(usPrjPath, L".save.txt");
 	if ( FileExists( S ) )
-		Memo1->Lines->LoadFromFile(S);
+		Memo2->Lines->LoadFromFile(S);
 }
 
 void __fastcall TMainForm::SavePrj(UnicodeString usPrjPath)
 {
-	S = ChangeFileExt(usPrjPath, L"_init.txt");
+	if ( FileExists( usPrjPath ) )
+	{
+		//Memo1->Lines->SaveToFile(usPrjPath);
+		//Memo2->Lines->SaveToFile(usPrjPath);
+	}
+	else{
+		Memo1->Lines->SaveToFile(usPrjPath);
+		Memo2->Lines->SaveToFile(usPrjPath);
+	}
+	S = ChangeFileExt(usPrjPath, L".init.txt");
 	Memo1->Lines->SaveToFile(S);
 
-	S = ChangeFileExt(usPrjPath, L"_save.txt");
-	Memo1->Lines->SaveToFile(S);
+	S = ChangeFileExt(usPrjPath, L".save.txt");
+	Memo2->Lines->SaveToFile(S);
 
 	TIniFile* iniFile = new TIniFile( ChangeFileExt(usPrjPath, L".ini") );
 	iniFile->WriteString( L"CTRL", L"CMD1", LeCMD1->Text );
@@ -1816,6 +1964,8 @@ void __fastcall TMainForm::SavePrj(UnicodeString usPrjPath)
 	iniFile->WriteString( L"CTRL", L"D_CNT_POS", LeDataCntPos->Text );
 	iniFile->WriteString( L"CTRL", L"A_HEAD", LeArrayHead->Text );
 	iniFile->WriteString( L"CTRL", L"A_TRAIL", LeArrayTrail->Text );
+	iniFile->WriteString( L"CTRL", L"A_HEAD1", LeArrayHeadOut->Text );
+	iniFile->WriteString( L"CTRL", L"A_TRAIL1", LeArrayTrailOut->Text );
 	iniFile->WriteString( L"CTRL", L"A_GAP1", LeArrayGap->Text );
 	iniFile->WriteString( L"CTRL", L"A_GAP2", LeArrayGapOut->Text );
 	iniFile->WriteString( L"CTRL", L"OTHER", LeExFunc->Text );
@@ -1899,6 +2049,46 @@ void __fastcall TMainForm::rdoInputTypeClick(TObject *Sender)
 			delete sli;
 
 		}
+	}
+}
+//---------------------------------------------------------------------------
+__fastcall TMainForm::TMainForm(TComponent* Owner) : TForm(Owner)
+{
+	OpenPrj( Application->ExeName) ;
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::MainAppEventsMessage(tagMSG &Msg, bool &Handled)
+{
+	if ( Msg.message == WM_DROPFILES )
+	//处理文件拖放
+   {
+	  HDROP hDrop = (HDROP)Msg.wParam;
+	  int iLength = DragQueryFile( hDrop, 0, 0, 0 ) + 1;
+	  TCHAR* FileFullPath = new TCHAR[iLength];
+		DragQueryFile( hDrop, 0, FileFullPath, iLength );
+		FileFullPath[iLength-1] = 0;
+		DragFinish( hDrop );
+
+		UnicodeString FileExt = ExtractFileExt( FileFullPath ).UpperCase();
+
+		TMemo* pMemo;
+		if ( Msg.hwnd == Memo1->Handle )
+			pMemo = Memo1;
+/*		else if (Msg.hwnd == Memo2->Handle)
+			pMemo = Memo2;   */
+		else
+			goto FUNC_RETURN;
+
+		if ( FileExt == L".TXT" || FileExt == L".C" || FileExt == L".CPP" || FileExt == L".H" )
+		//载入初始化
+		{
+			pMemo->Clear();
+			pMemo->Lines->LoadFromFile( UnicodeString(FileFullPath) );
+		}
+
+FUNC_RETURN:
+		delete[] FileFullPath;
+		DragFinish( hDrop );
 	}
 }
 //---------------------------------------------------------------------------

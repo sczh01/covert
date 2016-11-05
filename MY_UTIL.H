@@ -88,27 +88,32 @@ float FIC_dADCTodCself;
 
 };
 
-#define TX_NUM 36
-#define RX_NUM 64
+#define TX_NUM 72
+#define RX_NUM 54
 
 class Test_LogFile{
 public:
-	Test_LogFile():outstr(new TStringList()),instr(new TStringList()),pList(new TStringList()){
+	Test_LogFile():outstr(new TStringList()),instr(new TStringList()),pList(new TStringList()),pList1(new TStringList()){
 		file_num_all=file_num_OK=file_num_NG=0;
 		memset( (void*)trx, 0, TX_NUM*RX_NUM );
 		memset( (void*)limit, 0, TX_NUM*RX_NUM*2 );
 		memset( (void*)out_limit, 0, TX_NUM*RX_NUM*2 );
+		memset( (void*)ref_limit, 0, TX_NUM*RX_NUM*2 );
+		isUpdateRefLimit = false;
+		isUpdateGui = false;
 	};
 	~Test_LogFile(){delete outstr; delete instr;delete pList;};
 	int file_num_all,file_num_OK, file_num_NG;
-	TStringList* outstr,*instr, *pList;
-	UnicodeString S,S1,S2;
-	wstring str,str1;
+	TStringList* outstr,*instr, *pList, *pList1;
+	UnicodeString S,S1,S2,S_out;
+	wstring str,str1,str2;
 
 	float trx[TX_NUM][RX_NUM];
 	float limit[TX_NUM][RX_NUM*2];
 	float out_limit[TX_NUM][RX_NUM*2];
-
+	float ref_limit[TX_NUM][RX_NUM*2];
+	bool  isUpdateRefLimit;
+	bool  isUpdateGui;
 	TStringList *Load(UnicodeString file, int *param){
 		instr->Clear();
 
@@ -143,9 +148,122 @@ public:
 		}
 		return outstr;
 	}
+	TStringList *Comp( int file_line, int col, int row, int start, int comp_range, int p2_comp_range, int comp_type, int p2_comp_type ){
+		S2 = L"";
+		for( int k=0; k<col /*param[1]*/; k++ ){
+			//phase 1
+			str = instr->Strings[file_line+start/*param[7]*/+k].c_str();
+			size_t temp1 = str.find( L":" );
+			str1 = str.substr(temp1+1,str.length() );
+			S1 = str1.c_str();
+			pList->Delimiter = ',';
+			pList->DelimitedText = S1;
+			pList->Count;
 
+			//phase 2
+			str = instr->Strings[file_line+start+col/*param[7]*/+k].c_str();
+			temp1 = str.find( L":" );
+			str1 = str.substr(temp1+1,str.length() );
+			S1 = str1.c_str();
+			pList1->Delimiter = ',';
+			pList1->DelimitedText = S1;
+			pList1->Count;
+
+
+			if(  row <= pList->Count ){
+				for( int j=0; j<row ; j++ ){
+					trx[k][j] = StrToFloat( pList->Strings[j]);
+					trx[k+col][j] = StrToFloat( pList1->Strings[j]);
+
+					if( 1== comp_range ){ //external from limit
+						 if( comp_type/*param[9]*/ == 2 ){   // <>  AMP open phase 1
+							if( trx[k+col][j] < ref_limit[k+col][j*2] || trx[k+col][j] > ref_limit[k+col][j*2+1] ) {
+								//error
+								S.sprintf( L"P2(%02d:%02d)=%3.1f  ", k, j, trx[k+col][j] );
+								S2+=S;
+								isUpdateGui = true;
+							}
+						 }else if( comp_type == 1 ){  //>   ex: noise
+							if( trx[k+col][j] > ref_limit[k+col][j*2] ){
+							}
+						 }else if( comp_type == 3 ){   //< ex:AMP open phase 2
+							if( trx[k+col][j] < ref_limit[k+col][j*2] ){
+							}
+						 }else if( comp_type == 4 ){   //< ex:
+							if( trx[k+col][j] < ref_limit[k+col][j*2] ){
+							}
+						 }
+					}else{
+
+					}
+
+					if( 1==p2_comp_range){
+						 if( p2_comp_type/*param[9]*/ == 2 ){   // <>  AMP open phase 1
+							if( trx[k][j] < ref_limit[k][j*2] || trx[k][j] > ref_limit[k][j*2+1] ) {
+								//error
+								S.sprintf( L"P1(%02d:%02d)=%1.2f  ", k, j, trx[k][j] );
+								S2+=S;
+								isUpdateGui = true;
+							}
+						 }else if( p2_comp_type == 1 ){  //>   ex: noise
+							if( trx[k][j] > ref_limit[k][j*2] ){
+							}
+						 }else if( p2_comp_type == 3 ){   //< ex:AMP open phase 2
+							if( trx[k][j] < ref_limit[k][j*2] ){
+							}
+						 }else if( p2_comp_type == 4 ){   //< ex:
+							if( trx[k][j] < ref_limit[k][j*2] ){
+							}
+						 }
+					}else{
+
+                    }
+				}
+			}
+		}
+	}
+
+	TStringList *Comp( int file_line, int col, int row, int start, int ext_from, int comp_type ){
+		S2 = L"";
+		for( int k=0; k<col /*param[1]*/; k++ ){
+			str = instr->Strings[file_line+start/*param[7]*/+k].c_str();
+			size_t temp1 = str.find( L":" );
+			str1 = str.substr(temp1+1,str.length() );
+			S1 = str1.c_str();
+			pList->Delimiter = ',';
+			pList->DelimitedText = S1;
+			pList->Count;
+
+			if(  row <= pList->Count ){
+				for( int j=0; j<row /*param[2]*/; j++ ){
+					trx[k][j] = StrToFloat( pList->Strings[j]);
+					if( 1== ext_from/*param[11]*/ ){ //external from limit
+						 if( comp_type/*param[9]*/ == 2 ){   // <>  AMP open phase 1
+							if( trx[k][j] < ref_limit[k][j*2] || trx[k][j] > ref_limit[k][j*2+1] ) {
+								//error
+								S.sprintf( L"(%02d:%02d)=%04f  ", k, j, trx[k][j] );
+								S2+=S;
+								isUpdateGui = true;
+							}
+						 }else if( comp_type == 1 ){  //>   ex: noise
+							if( trx[k][j] > ref_limit[k][j*2] ){
+							}
+						 }else if( comp_type == 3 ){   //< ex:AMP open phase 2
+							if( trx[k][j] < ref_limit[k][j*2] ){
+							}
+						 }else if( comp_type == 4 ){   //< ex:
+							if( trx[k][j] < ref_limit[k][j*2] ){
+							}
+						 }
+					}else{
+
+					}
+				}
+			}
+		}
+	};
 	TStringList *Load(UnicodeString file, wstring str_item,wstring str_index,wstring str_rv, int *param){
-		wstring tempstr,tempstr1,tempstr2;
+		wstring strTestItem,strContent,strDetail;
 		bool isEnd = false;
 
 		instr->Clear();
@@ -165,15 +283,15 @@ public:
 			if( isEnd )
 				break;
 
-			tempstr=instr->Strings[i].UpperCase().c_str();
-			len = tempstr.length();
-			if( tempstr.find(str_item) < len ){
-				tempstr1 = instr->Strings[i+1].UpperCase().c_str(); //next string
-				tempstr2 = instr->Strings[i+2].UpperCase().c_str();
+			strTestItem=instr->Strings[i].UpperCase().c_str();
+			len = strTestItem.length();
+			if( strTestItem.find(str_item) < len ){
+				strContent = instr->Strings[i+1].UpperCase().c_str(); //next string
+				strDetail = instr->Strings[i+2].UpperCase().c_str();
 
 				switch( param[0] ){
 				case 00: //find some fail item ==> calibration data test
-					if( tempstr1.find(str_index)<tempstr1.length() )  {
+					if( strContent.find(str_index)<strContent.length() )  {
 						file_num_NG++;
 						S.sprintf( L"NG#%04d:", file_num_all );
 						S1 = instr->Strings[i+2].c_str();
@@ -191,7 +309,7 @@ public:
 					}
 					break;
 				case 01:
-					if( tempstr1.find(str_index)<tempstr1.length() )  {
+					if( strContent.find(str_index)<strContent.length() )  {
 						file_num_NG++;
 						S.sprintf( L"NG#%04d:", file_num_all );
 						S1 = instr->Strings[i+2].c_str();
@@ -222,10 +340,9 @@ public:
 					break;
 				case 02://calcuate the FRC, ex_param: 02 tx_NUM rx_NUM
 					S2 = L"";
-					file_num_NG ++;
-					if( tempstr1.find(str_index)<tempstr1.length() || tempstr2.find(str_rv)<tempstr2.length() ){
+					if( strContent.find(str_index)<strContent.length() || strDetail.find(str_rv)<strDetail.length() ){
 						for( int k=0; k<param[1]; k++ ){
-							str = instr->Strings[i+6+k].c_str();
+							str = instr->Strings[i+param[7]+k].c_str();
 							size_t temp1 = str.find( L":" );
 							str1 = str.substr(temp1+1,str.length() );
 							S1 = str1.c_str();
@@ -233,18 +350,80 @@ public:
 							pList->DelimitedText = S1;
 							pList->Count;
 
-							if(  param[2] < pList->Count ){
+							if(  param[2] <= pList->Count ){
 								for( int j=0; j<param[2]; j++ ){
 									trx[k][j] += StrToFloat( pList->Strings[j]);
 								}
 							}else{
 								//error control
-                            }
+							}
 						}
+						file_num_NG ++;
 						isEnd = true;
 					}
 					else{
 
+					}
+					break;
+				case 04://satis the NG sample,
+					S2 = L"";     //find the data
+					//update the limit
+					if( strContent.find(str_index)<strContent.length() && (false==isUpdateRefLimit) ){
+						for( int k=0; k<param[1]; k++ ){
+							str = instr->Strings[i+param[10]+k].c_str();
+							size_t temp1 = str.find( L":" );
+							str1 = str.substr(temp1+1,str.length() );
+							S1 = str1.c_str();
+							pList->Delimiter = ',';
+							pList->DelimitedText = S1;
+							pList->Count;
+
+							if(  param[2] <= pList->Count ){
+								for( int j=0; j<param[2]; j++ ){
+									for( int l=0; l< param[9];l++ )
+										ref_limit[k][j*param[9]+l] = StrToFloat( pList->Strings[j*param[9]+l]);
+								}
+							}
+						}
+						if( param[12] == 2 ){ // phase 2
+							for( int k=param[1]; k<param[1]+param[1]; k++ ){
+								str = instr->Strings[i+param[10]+k].c_str();
+								size_t temp1 = str.find( L":" );
+								str1 = str.substr(temp1+1,str.length() );
+								S1 = str1.c_str();
+								pList->Delimiter = ',';
+								pList->DelimitedText = S1;
+								pList->Count;
+
+								if(  param[2] <= pList->Count ){
+									for( int j=0; j<param[2]; j++ ){
+										for( int l=0; l< param[9];l++ )
+											ref_limit[k][j*param[9]+l] = StrToFloat( pList->Strings[j*param[9]+l]);
+									}
+								}
+							}
+						}
+						isUpdateRefLimit = true;
+					}
+
+					if( strContent.find(str_index)<strContent.length() ){
+
+
+						if( param[12] == 2 ){ // phase 2
+							Comp( i, param[1], param[2], param[7], param[11], param[14],param[9],param[13] );
+						}else if( param[12] == 1 ){
+							Comp( i, param[1], param[2], param[7], param[11], param[9] );
+						}
+						if( isUpdateGui ){
+							S = ExtractFileName( file );
+							S +=L"==>";
+							S +=S2;
+							outstr->Add( S );
+							isUpdateGui = false;
+						}
+
+						file_num_NG ++;
+						isEnd = true;
 					}
 					break;
 				}
@@ -299,20 +478,25 @@ bool LCD_Initial_Parser::IsDCSCommand(DWORD cmd){
 
 void LCD_Initial_Parser::LoadInitial(TStrings* In, int type)
 {
+	int i=0,j=0;
 	TStringList *pList = NULL;
 	StringsIn->Assign( In );
 	Output.clear();//只清除数据，reserve的不变
 	unsigned int  cmd=0, dat=0;
 
 	pList = new TStringList();
-
-	for ( int i = 0; i < StringsIn->Count; i++ ){
+	log.outstr->Clear();
+	log.isUpdateRefLimit = false;
+	for ( i = 0; i < StringsIn->Count; i++ ){
 		if( type == 17 ){
 			switch( ex_param[0] ) {
 			case 3:
 			log.Load( StringsIn->Strings[i].UpperCase().c_str(), ex_param );
 			break;
-			case 0,1,2:
+			case 0:
+			case 1:
+			case 2:
+			case 4:
 			log.Load( StringsIn->Strings[i].UpperCase().c_str(), S_COM, S_DATA, S_DELAY, ex_param );
 			break;
 			}
@@ -336,17 +520,20 @@ void LCD_Initial_Parser::LoadInitial(TStrings* In, int type)
 	}
 
 	if( type == 17 ){
-		switch(ex_param[0]){
-		case 0: //sats the NG inforamtion
+		if(0 == ex_param[0]){
+		//sats the NG inforamtion
+			//log.outstr->Clear();
 			log.S.sprintf( L"Total Test Sample %04d: NG Sample %04d, Fail ratio=%03f%", log.file_num_all, log.file_num_NG,log.file_num_NG*100.0/log.file_num_all );
 			log.outstr->Add( log.S );
-		break;
-		case 1:
-		break;
-		case 2,3: //calculate FRC limit
-			for( int i=0; i<ex_param[1]; i++ ){
+		}
+		else if(1 == ex_param[0]) {
+			log.outstr->Clear();
+		}
+		else if(2 == ex_param[0] || 3 == ex_param[0]){  //calculate FRC limit
+			log.outstr->Clear();
+			for( i=0; i<ex_param[1]; i++ ){
 				S1 = L"";
-				for( int j=0; j<ex_param[2]; j++ ){
+				for( j=0; j<ex_param[2]; j++ ){
 					log.trx[i][j] /= log.file_num_NG;
 					log.out_limit[i][j*2] = log.trx[i][j]*ex_param[3]/100;
 					log.out_limit[i][j*2+1] = log.trx[i][j]*ex_param[4]/100;
@@ -354,14 +541,14 @@ void LCD_Initial_Parser::LoadInitial(TStrings* In, int type)
 					S1+=L"	"; //L"W_COM"
 					S1+= FloatToStrF( log.out_limit[i][j*2+1],ffNumber, 10, 2  );
 					S1+=L"	";
+					log.trx[i][j] = 0.0;
 				}
 				log.outstr->Add( S1 );
 			}
-		break;
 		}
 	}
 
-	for ( size_t i = 0; i < Output.size(); i++ ){
+	for ( i = 0; i < Output.size(); i++ ){
 		if ( Output[i] & LCD_CMD ){
 			if ( IsDCSCommand(Output[i] & 0xFFFF) )
 			Output[i] |= LCD_DCS;
@@ -404,7 +591,7 @@ void LCD_Initial_Parser::Convert(wstring str, int type)
 	switch( type )
 	{
 	  case 1://格式1: 指令和参数分开，每个8/16位，例如 W_COM(0x0013); W_DATA(0x1A00);
-		if( 0x40==(ex_func&0xC0) ){  //for all 8bit output
+		if( 0x10==(ex_func&0xf0) ){  //for all 8bit output
 			if ( com_start < str_length && com_start < slash_pos )//有W_COM
 			{
 				l_bracket_pos = str.find( L'(', com_start );
@@ -459,20 +646,19 @@ void LCD_Initial_Parser::Convert(wstring str, int type)
 					}
 				}
 			}
-		}else if( 0x00==(ex_func&0xC0) ){
+		}else if( 0x20==(ex_func&0xF0) ){
 			if ( com_start < str_length && com_start < slash_pos )//有W_COM
 			{
 				l_bracket_pos = str.find( L'(', com_start );
 				r_bracket_pos = str.find( L')', com_start );
 				if ( l_bracket_pos < str_length && r_bracket_pos < str_length )
 				{
-					s_value = str.substr( l_bracket_pos + 1, r_bracket_pos - l_bracket_pos - 1 );
+					s_value = str.substr( l_bracket_pos + 1, str_length );
 					BlankCropper( s_value );
 					swscanf( s_value.c_str(), L"%i", &value_cmd );
 					Output.push_back( (value_cmd & 0xFFFF) | LCD_CMD );
 				}
 			}
-
 			if ( data_start < str_length && data_start < slash_pos )//有W_DATA
 			{
 				l_bracket_pos = str.find( L'(', data_start );
@@ -485,8 +671,38 @@ void LCD_Initial_Parser::Convert(wstring str, int type)
 					Output.push_back( (value_data & 0xFFFF) | LCD_DATA );
 				}
 			}
-		}
-		break;
+		}else if( 0x30==(ex_func&0xF0) ){
+			if ( com_start < str_length && com_start < slash_pos )//有W_COM
+			{
+				l_bracket_pos = str.find( L'=', com_start );
+
+				if ( l_bracket_pos < str_length )
+				{
+					s_value = str.substr( l_bracket_pos + 1, r_bracket_pos - l_bracket_pos - 1 );
+
+					if( s_value.find( L"0x", 0 )== 0xffffffff && s_value.find( L"0X", 0 )== 0xffffffff )
+						s_value = L"0x" + s_value ;
+
+					BlankCropper( s_value );
+					swscanf( s_value.c_str(), L"%i", &value_cmd );
+					Output.push_back( (value_cmd & 0xFFFF) | LCD_CMD );
+				}
+			}
+			if ( data_start < str_length && data_start < slash_pos )//有W_DATA
+			{
+				l_bracket_pos = str.find( L'=', data_start );
+
+				if ( l_bracket_pos < str_length  )
+				{
+					s_value = str.substr( l_bracket_pos + 1, str_length );
+					if( s_value.find( L"0x", 0 )== 0xffffffff && s_value.find( L"0X", 0 )== 0xffffffff )
+						s_value = L"0x" + s_value ;
+					BlankCropper( s_value );
+					swscanf( s_value.c_str(), L"%i", &value_data );
+					Output.push_back( (value_data & 0xFFFF) | LCD_DATA );
+				}
+			}
+		}		break;
 
 		case 2://指令和参数分开，每个8/16位，例如 {setc, [107], W, 0x000B0}
 		 if ( com_start < str_length && com_start < slash_pos )//有setc
